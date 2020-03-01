@@ -1,0 +1,57 @@
+version: '3.7'
+
+volumes:
+  pg_data:
+
+services:
+  example:
+    image: "${EXAMPLE_SERVICE}:${EXAMPLE_SERVICE__VERSION}-development"
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    env_file: 
+        - ./example.env
+    build:
+    networks:
+      - net
+    ports:
+      - 5000:5000
+    depends_on:
+      - example__migrator
+    stdin_open: true
+    tty: true
+    environment:
+      NODE_ENV: development
+    volumes:
+      - .:/home/example
+    command: sh -c "yarn install && yarn knex migrate:latest && yarn dev"
+
+  example__migrator:
+    image: "${EXAMPLE_SERVICE}:${EXAMPLE_SERVICE__VERSION}-development"
+    build:
+      context: .
+    command: sh -c './wait-for pg.example_net:5432 -- python manage.py db upgrade'
+    networks:
+      - net
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:12.0-alpine
+    networks:
+      - net
+    ports:
+      - 5432:5432
+    volumes:
+      - pg_data:/var/lib/postgresql/data/pg_data
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: example
+      POSTGRES_USER: example
+      POSTGRES_HOST: pg.example_net
+      POSTGRES_PORT: 5432
+      PGDATA: /var/lib/postgresql/data/pg_data
+
+networks:
+  net:
+
